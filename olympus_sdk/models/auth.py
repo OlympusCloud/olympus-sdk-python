@@ -1,0 +1,129 @@
+"""Auth models."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
+
+
+@dataclass
+class AuthSession:
+    """Authenticated session returned after login or SSO."""
+
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int = 3600
+    refresh_token: str | None = None
+    user_id: str | None = None
+    tenant_id: str | None = None
+    roles: list[str] = field(default_factory=list)
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> AuthSession:
+        roles_raw = data.get("roles")
+        return AuthSession(
+            access_token=data["access_token"],
+            token_type=data.get("token_type", "Bearer"),
+            expires_in=data.get("expires_in", 3600),
+            refresh_token=data.get("refresh_token"),
+            user_id=data.get("user_id"),
+            tenant_id=data.get("tenant_id"),
+            roles=list(roles_raw) if roles_raw else [],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "access_token": self.access_token,
+            "token_type": self.token_type,
+            "expires_in": self.expires_in,
+        }
+        if self.refresh_token is not None:
+            result["refresh_token"] = self.refresh_token
+        if self.user_id is not None:
+            result["user_id"] = self.user_id
+        if self.tenant_id is not None:
+            result["tenant_id"] = self.tenant_id
+        if self.roles:
+            result["roles"] = self.roles
+        return result
+
+
+@dataclass
+class User:
+    """A platform user."""
+
+    id: str
+    email: str
+    name: str | None = None
+    roles: list[str] = field(default_factory=list)
+    tenant_id: str | None = None
+    status: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> User:
+        roles_raw = data.get("roles")
+        return User(
+            id=data["id"],
+            email=data["email"],
+            name=data.get("name"),
+            roles=list(roles_raw) if roles_raw else [],
+            tenant_id=data.get("tenant_id"),
+            status=data.get("status"),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"id": self.id, "email": self.email}
+        if self.name is not None:
+            result["name"] = self.name
+        if self.roles:
+            result["roles"] = self.roles
+        if self.tenant_id is not None:
+            result["tenant_id"] = self.tenant_id
+        if self.status is not None:
+            result["status"] = self.status
+        if self.created_at is not None:
+            result["created_at"] = self.created_at.isoformat()
+        if self.updated_at is not None:
+            result["updated_at"] = self.updated_at.isoformat()
+        return result
+
+
+@dataclass
+class ApiKey:
+    """An API key for programmatic access."""
+
+    id: str
+    name: str
+    key: str | None = None
+    scopes: list[str] = field(default_factory=list)
+    created_at: datetime | None = None
+    expires_at: datetime | None = None
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> ApiKey:
+        scopes_raw = data.get("scopes")
+        return ApiKey(
+            id=data["id"],
+            name=data["name"],
+            key=data.get("key"),
+            scopes=list(scopes_raw) if scopes_raw else [],
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"id": self.id, "name": self.name}
+        if self.key is not None:
+            result["key"] = self.key
+        if self.scopes:
+            result["scopes"] = self.scopes
+        if self.created_at is not None:
+            result["created_at"] = self.created_at.isoformat()
+        if self.expires_at is not None:
+            result["expires_at"] = self.expires_at.isoformat()
+        return result
