@@ -7,7 +7,7 @@ name = "olympus-sdk"
 version = "0.3.0"
 description = "Official Python SDK for the Olympus Cloud Platform API"
 readme = "README.md"
-license = "Proprietary"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
     { name = "NebusAI Engineering", email = "engineering@nebusai.com" },
