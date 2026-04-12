@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from olympus_sdk.config import OlympusConfig
 from olympus_sdk.http import OlympusHttpClient
+from olympus_sdk.services.agent_workflows import AgentWorkflowsService
 from olympus_sdk.services.ai import AiService
 from olympus_sdk.services.auth import AuthService
 from olympus_sdk.services.billing import BillingService
@@ -75,6 +76,7 @@ class OlympusClient:
         self._gating: GatingService | None = None
         self._devices: DevicesService | None = None
         self._observe: ObserveService | None = None
+        self._agent_workflows: AgentWorkflowsService | None = None
 
     @classmethod
     def from_config(cls, config: OlympusConfig) -> OlympusClient:
@@ -175,6 +177,15 @@ class OlympusClient:
         if self._observe is None:
             self._observe = ObserveService(self._http)
         return self._observe
+
+    @property
+    def agent_workflows(self) -> AgentWorkflowsService:
+        """AI Agent Workflow Orchestration (#2915) — tenant-scoped multi-agent
+        DAG pipelines with cron/event triggers, capability routing, billing.
+        """
+        if self._agent_workflows is None:
+            self._agent_workflows = AgentWorkflowsService(self._http)
+        return self._agent_workflows
 
     # ------------------------------------------------------------------
     # Configuration accessors

@@ -39,10 +39,20 @@ class AiService:
         *,
         tier: str | None = None,
         context: dict[str, Any] | None = None,
+        required_capabilities: list[str] | None = None,
     ) -> AiResponse:
         """Send a single-turn prompt to the AI gateway.
 
         ``tier`` selects the model tier (T1-T6). Defaults to server-selected.
+
+        ``required_capabilities`` activates capability-based routing (#2919).
+        Non-text values bypass the text tier selector and route to the
+        cheapest model in the Ether catalog matching the capabilities.
+        Values: text, vision, audio_in, audio_out, audio_live, video_in,
+        video_generation, video_live, image_generation, embedding, reasoning,
+        agentic_coding, world_model, robotics_control, medical_specialist,
+        legal_specialist, financial_specialist, scientific_specialist,
+        function_calling, structured_output, long_context.
         """
         payload: dict[str, Any] = {
             "messages": [{"role": "user", "content": prompt}],
@@ -51,6 +61,82 @@ class AiService:
             payload["tier"] = tier
         if context is not None:
             payload["context"] = context
+        if required_capabilities is not None:
+            payload["required_capabilities"] = required_capabilities
+        data = self._http.post("/ai/chat", json=payload)
+        return AiResponse.from_dict(data)
+
+    def generate_image(
+        self,
+        prompt: str,
+        *,
+        preferred_provider: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate an image via the cheapest matching provider in the
+        Ether catalog (Flux Schnell free, DALL-E 3, Imagen 4, etc.).
+
+        Returns a dict with ``image_url`` or ``image_b64``.
+        """
+        payload: dict[str, Any] = {
+            "messages": [{"role": "user", "content": prompt}],
+            "required_capabilities": ["image_generation"],
+        }
+        if preferred_provider is not None:
+            payload["preferred_provider"] = preferred_provider
+        return self._http.post("/ai/chat", json=payload)
+
+    def generate_video(
+        self,
+        prompt: str,
+        *,
+        duration_seconds: int | None = None,
+        preferred_provider: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a video from text prompt (Veo / Kling / Pika / Luma / Hailuo).
+
+        Returns async job reference — poll ``/ai/video-jobs/{id}`` for completion.
+        """
+        payload: dict[str, Any] = {
+            "messages": [{"role": "user", "content": prompt}],
+            "required_capabilities": ["video_generation"],
+        }
+        if duration_seconds is not None:
+            payload["duration_seconds"] = duration_seconds
+        if preferred_provider is not None:
+            payload["preferred_provider"] = preferred_provider
+        return self._http.post("/ai/chat", json=payload)
+
+    def specialist_query(
+        self,
+        prompt: str,
+        specialty: str,
+        *,
+        context: str | None = None,
+    ) -> AiResponse:
+        """Call a vertical specialist model (medical, legal, financial, scientific).
+
+        Routes to Med-Gemini, Harvey, BloombergGPT, ESM-3, AlphaFold 3, etc.
+        based on the specialty flag.
+        """
+        cap_map = {
+            "medical": "medical_specialist",
+            "legal": "legal_specialist",
+            "financial": "financial_specialist",
+            "scientific": "scientific_specialist",
+        }
+        if specialty not in cap_map:
+            raise ValueError(
+                f"Unknown specialty {specialty!r}; "
+                f"must be one of {sorted(cap_map.keys())}"
+            )
+        messages = []
+        if context is not None:
+            messages.append({"role": "system", "content": context})
+        messages.append({"role": "user", "content": prompt})
+        payload = {
+            "messages": messages,
+            "required_capabilities": ["reasoning", cap_map[specialty]],
+        }
         data = self._http.post("/ai/chat", json=payload)
         return AiResponse.from_dict(data)
 
