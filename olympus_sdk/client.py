@@ -31,13 +31,16 @@ from olympus_sdk.services.billing import BillingService
 from olympus_sdk.services.commerce import CommerceService
 from olympus_sdk.services.data import DataService
 from olympus_sdk.services.devices import DevicesService
+from olympus_sdk.services.enterprise_context import EnterpriseContextService
 from olympus_sdk.services.events import EventsService
 from olympus_sdk.services.gating import GatingService
 from olympus_sdk.services.marketplace import MarketplaceService
+from olympus_sdk.services.messages import MessagesService
 from olympus_sdk.services.notify import NotifyService
 from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
 from olympus_sdk.services.storage import StorageService
+from olympus_sdk.services.voice_orders import VoiceOrdersService
 
 
 class OlympusClient:
@@ -77,6 +80,9 @@ class OlympusClient:
         self._devices: DevicesService | None = None
         self._observe: ObserveService | None = None
         self._agent_workflows: AgentWorkflowsService | None = None
+        self._enterprise_context: EnterpriseContextService | None = None
+        self._messages: MessagesService | None = None
+        self._voice_orders: VoiceOrdersService | None = None
 
     @classmethod
     def from_config(cls, config: OlympusConfig) -> OlympusClient:
@@ -186,6 +192,39 @@ class OlympusClient:
         if self._agent_workflows is None:
             self._agent_workflows = AgentWorkflowsService(self._http)
         return self._agent_workflows
+
+    @property
+    def enterprise_context(self) -> EnterpriseContextService:
+        """Enterprise Context (#2993) — Company 360 assembly for AI agents.
+
+        Returns complete tenant context (brand, locations, menu, specials,
+        FAQs, upsells, inventory, caller profile) in a single call.
+        """
+        if self._enterprise_context is None:
+            self._enterprise_context = EnterpriseContextService(self._http)
+        return self._enterprise_context
+
+    @property
+    def messages(self) -> MessagesService:
+        """Message queue (#2997) — department-routed messages from AI agents.
+
+        Queue messages for business departments (manager, catering, sales,
+        etc.) with notification dispatch and escalation rules.
+        """
+        if self._messages is None:
+            self._messages = MessagesService(self._http)
+        return self._messages
+
+    @property
+    def voice_orders(self) -> VoiceOrdersService:
+        """Voice orders (#2999) — phone order placement with POS push.
+
+        Create, track, and push voice-collected orders to POS systems
+        (Toast, Square, Clover) with price validation.
+        """
+        if self._voice_orders is None:
+            self._voice_orders = VoiceOrdersService(self._http)
+        return self._voice_orders
 
     # ------------------------------------------------------------------
     # Configuration accessors
