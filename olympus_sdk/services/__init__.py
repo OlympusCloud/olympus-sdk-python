@@ -1,5 +1,9 @@
 """Olympus SDK service modules."""
 
+from olympus_sdk.services.admin_billing import AdminBillingService
+from olympus_sdk.services.admin_cpaas import AdminCpaasService
+from olympus_sdk.services.admin_ether import AdminEtherService
+from olympus_sdk.services.admin_gating import AdminGatingService
 from olympus_sdk.services.ai import AiService
 from olympus_sdk.services.auth import AuthService
 from olympus_sdk.services.billing import BillingService
@@ -21,10 +25,15 @@ from olympus_sdk.services.pay import PayService
 from olympus_sdk.services.platform import PlatformService
 from olympus_sdk.services.pos import PosService
 from olympus_sdk.services.storage import StorageService
+from olympus_sdk.services.tuning import TuningService
 from olympus_sdk.services.voice import VoiceService
 from olympus_sdk.services.voice_orders import VoiceOrdersService
 
 __all__ = [
+    "AdminBillingService",
+    "AdminCpaasService",
+    "AdminEtherService",
+    "AdminGatingService",
     "AiService",
     "AuthService",
     "BillingService",
@@ -46,6 +55,7 @@ __all__ = [
     "PlatformService",
     "PosService",
     "StorageService",
+    "TuningService",
     "VoiceService",
     "VoiceOrdersService",
 ]
