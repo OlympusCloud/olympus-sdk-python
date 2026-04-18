@@ -354,10 +354,12 @@ class OlympusClient:
         """Constant-time bitmask check against decoded ``app_scopes_bitset``.
 
         Returns ``False`` when no token set, for platform-shell tokens without
-        a bitset, or when ``bit_id`` is out of range. Used by SDK service
-        methods to fail-fast with a typed :class:`ScopeDenied` BEFORE the HTTP
-        call.
+        a bitset, when ``bit_id`` is negative, or when ``bit_id`` is out of
+        range. Used by SDK service methods to fail-fast with a typed
+        :class:`ScopeDenied` BEFORE the HTTP call.
         """
+        if bit_id < 0:
+            return False
         bitset = self._decode_bitset_once()
         if bitset is None:
             return False

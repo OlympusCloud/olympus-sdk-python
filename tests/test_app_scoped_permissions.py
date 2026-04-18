@@ -108,6 +108,9 @@ class TestClientHelpers:
         assert not oc.has_scope_bit(500)
         # Out of range
         assert not oc.has_scope_bit(2048)
+        # Negative bit_id — must NOT end-relative-index into the bitset
+        assert not oc.has_scope_bit(-1)
+        assert not oc.has_scope_bit(-1024)
 
     def test_bitset_cache_invalidated_on_token_change(self) -> None:
         oc = _make_client()
