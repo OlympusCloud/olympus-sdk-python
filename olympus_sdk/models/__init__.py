@@ -34,6 +34,12 @@ from olympus_sdk.models.device import Device
 from olympus_sdk.models.marketplace import Installation, MarketplaceApp
 from olympus_sdk.models.observe import TraceHandle
 from olympus_sdk.models.pay import Balance, Payment, Payout, Refund, TerminalPayment, TerminalReader
+from olympus_sdk.models.voice_v2 import (
+    VoiceDefaultsCascade,
+    VoiceDefaultsRung,
+    VoiceEffectiveConfig,
+    VoicePipeline,
+)
 
 __all__ = [
     "AgentResult",
@@ -69,6 +75,10 @@ __all__ = [
     "TraceHandle",
     "UsageReport",
     "User",
+    "VoiceDefaultsCascade",
+    "VoiceDefaultsRung",
+    "VoiceEffectiveConfig",
+    "VoicePipeline",
     "WebhookRegistration",
     "Plan",
 ]

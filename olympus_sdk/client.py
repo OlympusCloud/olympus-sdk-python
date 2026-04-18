@@ -24,6 +24,10 @@ from __future__ import annotations
 
 from olympus_sdk.config import OlympusConfig
 from olympus_sdk.http import OlympusHttpClient
+from olympus_sdk.services.admin_billing import AdminBillingService
+from olympus_sdk.services.admin_cpaas import AdminCpaasService
+from olympus_sdk.services.admin_ether import AdminEtherService
+from olympus_sdk.services.admin_gating import AdminGatingService
 from olympus_sdk.services.agent_workflows import AgentWorkflowsService
 from olympus_sdk.services.ai import AiService
 from olympus_sdk.services.auth import AuthService
@@ -39,7 +43,10 @@ from olympus_sdk.services.messages import MessagesService
 from olympus_sdk.services.notify import NotifyService
 from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
+from olympus_sdk.services.connect import ConnectService
 from olympus_sdk.services.storage import StorageService
+from olympus_sdk.services.tuning import TuningService
+from olympus_sdk.services.voice import VoiceService
 from olympus_sdk.services.voice_orders import VoiceOrdersService
 
 
@@ -83,6 +90,13 @@ class OlympusClient:
         self._enterprise_context: EnterpriseContextService | None = None
         self._messages: MessagesService | None = None
         self._voice_orders: VoiceOrdersService | None = None
+        self._admin_ether: AdminEtherService | None = None
+        self._admin_cpaas: AdminCpaasService | None = None
+        self._admin_billing: AdminBillingService | None = None
+        self._admin_gating: AdminGatingService | None = None
+        self._tuning: TuningService | None = None
+        self._voice: VoiceService | None = None
+        self._connect: ConnectService | None = None
 
     @classmethod
     def from_config(cls, config: OlympusConfig) -> OlympusClient:
@@ -225,6 +239,56 @@ class OlympusClient:
         if self._voice_orders is None:
             self._voice_orders = VoiceOrdersService(self._http)
         return self._voice_orders
+
+    @property
+    def admin_ether(self) -> AdminEtherService:
+        """Ether AI model catalog admin -- CRUD models, tiers, catalog reload."""
+        if self._admin_ether is None:
+            self._admin_ether = AdminEtherService(self._http)
+        return self._admin_ether
+
+    @property
+    def admin_cpaas(self) -> AdminCpaasService:
+        """CPaaS provider admin -- provider preferences and health monitoring."""
+        if self._admin_cpaas is None:
+            self._admin_cpaas = AdminCpaasService(self._http)
+        return self._admin_cpaas
+
+    @property
+    def admin_billing(self) -> AdminBillingService:
+        """Billing plan catalog admin -- plans, add-ons, minute packs, usage."""
+        if self._admin_billing is None:
+            self._admin_billing = AdminBillingService(self._http)
+        return self._admin_billing
+
+    @property
+    def admin_gating(self) -> AdminGatingService:
+        """Feature flag admin -- define features, plan assignment, resource limits."""
+        if self._admin_gating is None:
+            self._admin_gating = AdminGatingService(self._http)
+        return self._admin_gating
+
+    @property
+    def tuning(self) -> TuningService:
+        """AI tuning jobs, synthetic persona generation, and chaos audio simulation."""
+        if self._tuning is None:
+            self._tuning = TuningService(self._http)
+        return self._tuning
+
+    @property
+    def voice(self) -> VoiceService:
+        """Voice AI: caller profiles, escalation, business hours, and V2-005
+        cascade resolver (#3162). v0.4.0."""
+        if self._voice is None:
+            self._voice = VoiceService(self._http)
+        return self._voice
+
+    @property
+    def connect(self) -> ConnectService:
+        """Marketing funnel + pre-conversion lead capture (#3108). v0.4.0."""
+        if self._connect is None:
+            self._connect = ConnectService(self._http)
+        return self._connect
 
     # ------------------------------------------------------------------
     # Configuration accessors
