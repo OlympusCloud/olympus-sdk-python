@@ -23,7 +23,24 @@ Usage::
 
 from olympus_sdk.client import OlympusClient
 from olympus_sdk.config import OlympusConfig, OlympusEnvironment
-from olympus_sdk.errors import OlympusApiError, OlympusNetworkError
+from olympus_sdk.errors import (
+    BillingGraceExceeded,
+    ConsentRequired,
+    DeviceChanged,
+    ExceptionExpired,
+    ExceptionRequestError,
+    OlympusApiError,
+    OlympusNetworkError,
+    ScopeDenied,
+)
+from olympus_sdk.services.consent import ConsentPrompt, ConsentService, Grant
+from olympus_sdk.services.governance import (
+    ExceptionRequest,
+    ExceptionStatus,
+    GovernanceService,
+    PolicyKey,
+    RiskTier,
+)
 
 __all__ = [
     "OlympusClient",
@@ -31,6 +48,21 @@ __all__ = [
     "OlympusEnvironment",
     "OlympusApiError",
     "OlympusNetworkError",
+    # App-scoped permissions v2.0 (olympus-cloud-gcp#3234 / #3254)
+    "ConsentService",
+    "ConsentPrompt",
+    "Grant",
+    "GovernanceService",
+    "ExceptionRequest",
+    "ExceptionStatus",
+    "PolicyKey",
+    "RiskTier",
+    "ConsentRequired",
+    "ScopeDenied",
+    "BillingGraceExceeded",
+    "DeviceChanged",
+    "ExceptionRequestError",
+    "ExceptionExpired",
 ]
 
 __version__ = "0.1.0"
