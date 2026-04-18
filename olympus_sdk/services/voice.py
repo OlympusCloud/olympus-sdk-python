@@ -1,12 +1,14 @@
-"""Voice AI: caller profiles, escalation, and business hours.
+"""Voice AI: caller profiles, escalation, business hours, and V2-005 cascade resolver.
 
 Wraps the Olympus Voice AI service via the Go API Gateway.
-Routes: ``/voice/*``.
+Routes: ``/voice/*``, ``/voice-agents/configs/*``.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+
+from olympus_sdk.models.voice_v2 import VoiceEffectiveConfig, VoicePipeline
 
 if TYPE_CHECKING:
     from olympus_sdk.http import OlympusHttpClient
@@ -125,3 +127,29 @@ class VoiceService:
         if timezone is not None:
             payload["timezone"] = timezone
         return self._http.put("/voice/business-hours", json=payload)
+
+    # ------------------------------------------------------------------
+    # V2-005 — Cascade resolver (effective-config + pipeline)
+    # ------------------------------------------------------------------
+
+    async def get_effective_config(self, agent_id: str) -> VoiceEffectiveConfig:
+        """Resolve the effective voice-agent configuration after cascading
+        platform → app → tenant → agent voice defaults.
+
+        Backing endpoint: ``GET /api/v1/voice-agents/configs/{id}/effective-config``
+        (Python cascade resolver — V2-005, issue
+        OlympusCloud/olympus-cloud-gcp#3162).
+        """
+        data = self._http.get(f"/voice-agents/configs/{agent_id}/effective-config")
+        return VoiceEffectiveConfig.from_dict(data)
+
+    async def get_pipeline(self, agent_id: str) -> VoicePipeline:
+        """Resolve only the pipeline view of an agent's configuration.
+
+        Cheaper than :meth:`get_effective_config` when callers only need the
+        pipeline name + config.
+
+        Backing endpoint: ``GET /api/v1/voice-agents/configs/{id}/pipeline``.
+        """
+        data = self._http.get(f"/voice-agents/configs/{agent_id}/pipeline")
+        return VoicePipeline.from_dict(data)

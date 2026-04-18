@@ -43,8 +43,10 @@ from olympus_sdk.services.messages import MessagesService
 from olympus_sdk.services.notify import NotifyService
 from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
+from olympus_sdk.services.connect import ConnectService
 from olympus_sdk.services.storage import StorageService
 from olympus_sdk.services.tuning import TuningService
+from olympus_sdk.services.voice import VoiceService
 from olympus_sdk.services.voice_orders import VoiceOrdersService
 
 
@@ -93,6 +95,8 @@ class OlympusClient:
         self._admin_billing: AdminBillingService | None = None
         self._admin_gating: AdminGatingService | None = None
         self._tuning: TuningService | None = None
+        self._voice: VoiceService | None = None
+        self._connect: ConnectService | None = None
 
     @classmethod
     def from_config(cls, config: OlympusConfig) -> OlympusClient:
@@ -270,6 +274,21 @@ class OlympusClient:
         if self._tuning is None:
             self._tuning = TuningService(self._http)
         return self._tuning
+
+    @property
+    def voice(self) -> VoiceService:
+        """Voice AI: caller profiles, escalation, business hours, and V2-005
+        cascade resolver (#3162). v0.4.0."""
+        if self._voice is None:
+            self._voice = VoiceService(self._http)
+        return self._voice
+
+    @property
+    def connect(self) -> ConnectService:
+        """Marketing funnel + pre-conversion lead capture (#3108). v0.4.0."""
+        if self._connect is None:
+            self._connect = ConnectService(self._http)
+        return self._connect
 
     # ------------------------------------------------------------------
     # Configuration accessors
