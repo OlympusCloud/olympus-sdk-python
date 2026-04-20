@@ -44,6 +44,8 @@ from olympus_sdk.services.notify import NotifyService
 from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
 from olympus_sdk.services.connect import ConnectService
+from olympus_sdk.services.consent import ConsentService
+from olympus_sdk.services.governance import GovernanceService
 from olympus_sdk.services.storage import StorageService
 from olympus_sdk.services.tuning import TuningService
 from olympus_sdk.services.voice import VoiceService
@@ -97,6 +99,11 @@ class OlympusClient:
         self._tuning: TuningService | None = None
         self._voice: VoiceService | None = None
         self._connect: ConnectService | None = None
+        self._consent: ConsentService | None = None
+        self._governance: GovernanceService | None = None
+        # Lazy-decoded scope bitset cache keyed by access token.
+        self._cached_bitset_bytes: bytes | None = None
+        self._cached_bitset_for_token: str | None = None
 
     @classmethod
     def from_config(cls, config: OlympusConfig) -> OlympusClient:
@@ -289,6 +296,128 @@ class OlympusClient:
         if self._connect is None:
             self._connect = ConnectService(self._http)
         return self._connect
+
+    @property
+    def consent(self) -> ConsentService:
+        """App-scoped permissions consent surface (v2.0.0 — #3254 / #3234 epic).
+
+        See docs/platform/APP-SCOPED-PERMISSIONS.md §6.
+        """
+        if self._consent is None:
+            self._consent = ConsentService(self._http)
+        return self._consent
+
+    @property
+    def governance(self) -> GovernanceService:
+        """Policy exception framework (v2.0.0 — #3254 / #3259).
+
+        Narrow scope: ``session_ttl_role_ceiling`` and ``grace_policy_category``
+        only. See §17 of APP-SCOPED-PERMISSIONS.md.
+        """
+        if self._governance is None:
+            self._governance = GovernanceService(self._http)
+        return self._governance
+
+    # ------------------------------------------------------------------
+    # App-scoped token management (§4.5 dual-JWT flow)
+    # ------------------------------------------------------------------
+
+    def set_app_token(self, token: str) -> None:
+        """Attach the App JWT obtained from ``/auth/app-tokens/mint``.
+
+        Forwarded on every request as ``X-App-Token`` alongside the user JWT
+        Authorization header per the dual-JWT flow (§4.5).
+        """
+        self._http.set_app_token(token)
+        self._invalidate_bitset_cache()
+
+    def clear_app_token(self) -> None:
+        """Clear the app token (e.g. on logout)."""
+        self._http.clear_app_token()
+        self._invalidate_bitset_cache()
+
+    def set_access_token(self, token: str) -> None:
+        """Replace the active access token; invalidates cached bitset decode."""
+        self._http.set_access_token(token)
+        self._invalidate_bitset_cache()
+
+    def on_catalog_stale(self, handler) -> None:
+        """Register a handler for the §4.7 rolling-window stale-catalog signal.
+
+        Called when the server returns ``X-Olympus-Catalog-Stale: true``.
+        Consumers should schedule a background refresh at a randomized 0–15
+        minute offset to smear token-refresh traffic.
+        """
+        self._http.on_catalog_stale(handler)
+
+    def has_scope_bit(self, bit_id: int) -> bool:
+        """Constant-time bitmask check against decoded ``app_scopes_bitset``.
+
+        Returns ``False`` when no token set, for platform-shell tokens without
+        a bitset, when ``bit_id`` is negative, or when ``bit_id`` is out of
+        range. Used by SDK service methods to fail-fast with a typed
+        :class:`ScopeDenied` BEFORE the HTTP call.
+        """
+        if bit_id < 0:
+            return False
+        bitset = self._decode_bitset_once()
+        if bitset is None:
+            return False
+        byte_idx = bit_id // 8
+        bit_idx = bit_id % 8
+        if byte_idx >= len(bitset):
+            return False
+        return (bitset[byte_idx] & (1 << bit_idx)) != 0
+
+    def is_app_scoped(self) -> bool:
+        """True when the current access token carries an ``app_id`` claim."""
+        claims = self._decoded_claims()
+        return bool(claims and claims.get("app_id"))
+
+    def _invalidate_bitset_cache(self) -> None:
+        self._cached_bitset_bytes = None
+        self._cached_bitset_for_token = None
+
+    def _decoded_claims(self) -> dict | None:
+        import base64
+        import json
+
+        token = self._http.get_access_token()
+        if not token:
+            return None
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        payload = parts[1]
+        padding = "=" * (-len(payload) % 4)
+        try:
+            decoded = base64.urlsafe_b64decode(payload + padding)
+            return json.loads(decoded.decode("utf-8"))
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _decode_bitset_once(self) -> bytes | None:
+        import base64
+
+        token = self._http.get_access_token()
+        if not token:
+            return None
+        if self._cached_bitset_for_token == token and self._cached_bitset_bytes is not None:
+            return self._cached_bitset_bytes
+        claims = self._decoded_claims()
+        bitset = claims.get("app_scopes_bitset") if claims else None
+        if not isinstance(bitset, str) or not bitset:
+            self._cached_bitset_bytes = b""
+            self._cached_bitset_for_token = token
+            return self._cached_bitset_bytes
+        padding = "=" * (-len(bitset) % 4)
+        try:
+            decoded = base64.urlsafe_b64decode(bitset + padding)
+            self._cached_bitset_bytes = decoded
+            self._cached_bitset_for_token = token
+            return decoded
+        except Exception:  # noqa: BLE001
+            return None
 
     # ------------------------------------------------------------------
     # Configuration accessors
