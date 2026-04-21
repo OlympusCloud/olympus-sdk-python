@@ -41,6 +41,15 @@ from olympus_sdk.errors import (
     ScopeDenied,
 )
 from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
+from olympus_sdk.services.auth import (
+    AuthService,
+    SessionEvent,
+    SessionExpired,
+    SessionLoggedIn,
+    SessionLoggedOut,
+    SessionRefreshed,
+    SilentRefreshHandle,
+)
 from olympus_sdk.services.consent import ConsentPrompt, ConsentService, Grant
 from olympus_sdk.services.governance import (
     ExceptionRequest,
@@ -86,6 +95,14 @@ __all__ = [
     "OlympusIdentity",
     "SmartHomeService",
     "SmsService",
+    # Silent token refresh + session event stream (#3403 §1.4 / #3412)
+    "AuthService",
+    "SessionEvent",
+    "SessionLoggedIn",
+    "SessionRefreshed",
+    "SessionExpired",
+    "SessionLoggedOut",
+    "SilentRefreshHandle",
 ]
 
 __version__ = "0.5.0"
