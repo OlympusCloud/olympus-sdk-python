@@ -23,6 +23,12 @@ Usage::
 
 from olympus_sdk.client import OlympusClient
 from olympus_sdk.config import OlympusConfig, OlympusEnvironment
+from olympus_sdk.constants import (
+    OLYMPUS_ROLES_ALL,
+    OLYMPUS_SCOPES_ALL,
+    OlympusRoles,
+    OlympusScopes,
+)
 from olympus_sdk.errors import (
     BillingGraceExceeded,
     ConsentRequired,
@@ -31,6 +37,7 @@ from olympus_sdk.errors import (
     ExceptionRequestError,
     OlympusApiError,
     OlympusNetworkError,
+    OlympusScopeRequiredError,
     ScopeDenied,
 )
 from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
@@ -67,6 +74,12 @@ __all__ = [
     "DeviceChanged",
     "ExceptionRequestError",
     "ExceptionExpired",
+    # Client-side scope assertion (olympus-cloud-gcp#3403 §1.2)
+    "OlympusScopeRequiredError",
+    "OlympusScopes",
+    "OlympusRoles",
+    "OLYMPUS_SCOPES_ALL",
+    "OLYMPUS_ROLES_ALL",
     # Wave 2 — olympus-cloud-gcp#3216 (voice + identity + smart-home + sms)
     "IdentityService",
     "IdentityLink",

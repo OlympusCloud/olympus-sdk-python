@@ -41,6 +41,11 @@ Repository = "https://github.com/nebusai/olympus-cloud"
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+# Generated scope/role constants carry DO NOT EDIT headers — regenerated from
+# docs/platform/{scopes,roles}.yaml via scripts/generate_sdk_scope_constants.py
+# in the monorepo, so hand-fixing lint there would be overwritten on the next
+# regen. Exclude from ruff.
+extend-exclude = ["olympus_sdk/constants"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]

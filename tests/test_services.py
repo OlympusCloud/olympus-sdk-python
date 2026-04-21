@@ -106,6 +106,133 @@ class TestAuthService:
 
 
 # =========================================================================
+# has_scope / require_scope / granted_scopes helpers (#3403 §1.2)
+# =========================================================================
+
+
+class TestAuthServiceScopeHelpers:
+    """#3403 §1.2 — client-side fail-fast scope assertion."""
+
+    def test_granted_scopes_empty_before_login(self) -> None:
+        http = _mock_http()
+        svc = AuthService(http)
+        assert svc.current_session is None
+        assert svc.granted_scopes == frozenset()
+        assert not svc.has_scope("commerce.order.read@tenant")
+
+    def test_granted_scopes_from_login_response_body(self) -> None:
+        http = _mock_http()
+        http.post.return_value = {
+            "access_token": "tok_abc",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "user_id": "u1",
+            "tenant_id": "t1",
+            "roles": ["manager"],
+            "app_scopes": [
+                "commerce.order.read@tenant",
+                "commerce.order.write@tenant",
+            ],
+        }
+        svc = AuthService(http)
+        session = svc.login("u@test.com", "pw")
+        assert session.app_scopes == [
+            "commerce.order.read@tenant",
+            "commerce.order.write@tenant",
+        ]
+        assert svc.current_session is session
+        assert svc.granted_scopes == frozenset(
+            {"commerce.order.read@tenant", "commerce.order.write@tenant"}
+        )
+        assert svc.has_scope("commerce.order.read@tenant")
+        assert svc.has_scope("commerce.order.write@tenant")
+        assert not svc.has_scope("pizza.menu.write@tenant")
+
+    def test_granted_scopes_fall_back_to_jwt_claim(self) -> None:
+        """When response body omits ``app_scopes`` but the JWT carries it."""
+        import base64
+        import json
+
+        def _b64u(data: bytes) -> str:
+            return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+        header = _b64u(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
+        payload = _b64u(
+            json.dumps(
+                {
+                    "sub": "u1",
+                    "tenant_id": "t1",
+                    "app_scopes": ["aura.calendar.read@user"],
+                    "iat": 0,
+                    "exp": 9999999999,
+                }
+            ).encode()
+        )
+        token = f"{header}.{payload}.sig"
+        http = _mock_http()
+        http.post.return_value = {
+            "access_token": token,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "user_id": "u1",
+        }
+        svc = AuthService(http)
+        svc.login("u@test.com", "pw")
+        assert svc.has_scope("aura.calendar.read@user")
+        assert svc.granted_scopes == frozenset({"aura.calendar.read@user"})
+
+    def test_require_scope_raises_when_missing(self) -> None:
+        from olympus_sdk.errors import OlympusScopeRequiredError
+
+        http = _mock_http()
+        svc = AuthService(http)
+        with pytest.raises(OlympusScopeRequiredError) as exc_info:
+            svc.require_scope("commerce.order.write@tenant")
+        assert exc_info.value.scope == "commerce.order.write@tenant"
+        assert exc_info.value.code == "SCOPE_REQUIRED"
+        assert exc_info.value.status_code == 403
+
+    def test_require_scope_passes_when_granted(self) -> None:
+        http = _mock_http()
+        svc = AuthService(http)
+        svc._current_session = AuthSession(  # type: ignore[attr-defined]
+            access_token="tok",
+            app_scopes=["commerce.order.write@tenant"],
+        )
+        # Must not raise
+        svc.require_scope("commerce.order.write@tenant")
+
+    def test_logout_clears_current_session(self) -> None:
+        http = _mock_http()
+        http.post.return_value = {
+            "access_token": "tok_abc",
+            "user_id": "u1",
+            "app_scopes": ["platform.user.profile.read@user"],
+        }
+        svc = AuthService(http)
+        svc.login("u@t.com", "pw")
+        assert svc.current_session is not None
+        assert svc.has_scope("platform.user.profile.read@user")
+
+        svc.logout()
+        assert svc.current_session is None
+        assert svc.granted_scopes == frozenset()
+        assert not svc.has_scope("platform.user.profile.read@user")
+
+    def test_has_scope_uses_generated_constants(self) -> None:
+        """The ``OlympusScopes`` generated constants are usable in ``has_scope``."""
+        from olympus_sdk.constants import OlympusScopes
+
+        http = _mock_http()
+        svc = AuthService(http)
+        svc._current_session = AuthSession(  # type: ignore[attr-defined]
+            access_token="tok",
+            app_scopes=[OlympusScopes.PLATFORM_USER_PROFILE_READ_AT_USER],
+        )
+        assert svc.has_scope(OlympusScopes.PLATFORM_USER_PROFILE_READ_AT_USER)
+
+
+# =========================================================================
 # Commerce service tests
 # =========================================================================
 
@@ -513,6 +640,28 @@ class TestModelRoundTrips:
         data = {"access_token": "t", "token_type": "Bearer", "expires_in": 1800, "roles": ["admin"]}
         session = AuthSession.from_dict(data)
         assert session.to_dict()["access_token"] == "t"
+
+    def test_auth_session_app_scopes_round_trip(self) -> None:
+        data = {
+            "access_token": "t",
+            "app_scopes": ["commerce.order.read@tenant", "platform.tenant.read@tenant"],
+        }
+        session = AuthSession.from_dict(data)
+        assert session.app_scopes == [
+            "commerce.order.read@tenant",
+            "platform.tenant.read@tenant",
+        ]
+        assert session.to_dict()["app_scopes"] == [
+            "commerce.order.read@tenant",
+            "platform.tenant.read@tenant",
+        ]
+
+    def test_auth_session_app_scopes_defaults_empty(self) -> None:
+        data = {"access_token": "t"}
+        session = AuthSession.from_dict(data)
+        assert session.app_scopes == []
+        # Empty scopes should NOT round-trip into the dict payload.
+        assert "app_scopes" not in session.to_dict()
 
     def test_user_round_trip(self) -> None:
         data = {"id": "u1", "email": "a@b.com", "created_at": "2026-01-01T00:00:00"}

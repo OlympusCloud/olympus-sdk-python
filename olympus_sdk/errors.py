@@ -193,3 +193,31 @@ class ExceptionExpired(OlympusApiError):
             request_id=request_id,
         )
         self.exception_id = exception_id
+
+
+class OlympusScopeRequiredError(OlympusApiError):
+    """Raised by :meth:`AuthService.require_scope` when a scope is not granted.
+
+    Distinct from :class:`ConsentRequired` (which is produced server-side when
+    a request is rejected): ``OlympusScopeRequiredError`` fires *client-side*
+    before a network call when the caller proactively asserts a scope via
+    ``oc.auth.require_scope(...)`` and the active session does not carry it.
+
+    Part of olympus-cloud-gcp#3403 §1.2 — client-side fail-fast scope helpers.
+    """
+
+    def __init__(
+        self,
+        scope: str,
+        *,
+        message: str | None = None,
+        status_code: int = 403,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="SCOPE_REQUIRED",
+            message=message or f"Scope '{scope}' is required but not granted to the current session.",
+            status_code=status_code,
+            request_id=request_id,
+        )
+        self.scope = scope

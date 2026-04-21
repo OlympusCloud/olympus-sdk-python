@@ -6,12 +6,38 @@ Routes: ``/auth/*``, ``/platform/users/*``.
 
 from __future__ import annotations
 
+import base64
+import json
 from typing import TYPE_CHECKING
 
+from olympus_sdk.errors import OlympusScopeRequiredError
 from olympus_sdk.models.auth import ApiKey, AuthSession, User
 
 if TYPE_CHECKING:
     from olympus_sdk.http import OlympusHttpClient
+
+
+def _decode_jwt_app_scopes(access_token: str) -> list[str]:
+    """Decode the ``app_scopes`` claim from an RS256/HS256 JWT payload.
+
+    Returns an empty list if the token is malformed, unparseable, or the
+    claim is absent / not a list of strings. No signature verification is
+    performed — the SDK trusts the gateway's response.
+    """
+    parts = access_token.split(".")
+    if len(parts) < 2:
+        return []
+    payload = parts[1]
+    padding = "=" * (-len(payload) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        claims = json.loads(decoded.decode("utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+    raw = claims.get("app_scopes") if isinstance(claims, dict) else None
+    if not isinstance(raw, list):
+        return []
+    return [str(s) for s in raw if isinstance(s, str)]
 
 
 class AuthService:
@@ -19,6 +45,66 @@ class AuthService:
 
     def __init__(self, http: OlympusHttpClient) -> None:
         self._http = http
+        self._current_session: AuthSession | None = None
+
+    # ------------------------------------------------------------------
+    # Session accessors (#3403 §1.2)
+    # ------------------------------------------------------------------
+
+    @property
+    def current_session(self) -> AuthSession | None:
+        """The last :class:`AuthSession` returned by login/refresh, if any.
+
+        Cleared by :meth:`logout`. External consumers that call
+        :meth:`OlympusClient.set_access_token` directly do NOT populate this
+        field — use the scope helpers on the client for those flows.
+        """
+        return self._current_session
+
+    @property
+    def granted_scopes(self) -> frozenset[str]:
+        """All scopes granted to the current session.
+
+        Pulled from :attr:`AuthSession.app_scopes`, which is populated from
+        the login response body and/or decoded from the JWT ``app_scopes``
+        claim. Returns an empty :class:`frozenset` when no session is active.
+        """
+        session = self._current_session
+        if session is None:
+            return frozenset()
+        return frozenset(session.app_scopes or [])
+
+    def has_scope(self, scope: str) -> bool:
+        """Return ``True`` if the current session has the given scope.
+
+        Fail-fast client-side check that runs before a network call. Prefer
+        :class:`olympus_sdk.constants.OlympusScopes` typed constants over
+        string literals.
+        """
+        return scope in self.granted_scopes
+
+    def require_scope(self, scope: str) -> None:
+        """Raise :class:`OlympusScopeRequiredError` if ``scope`` is not granted.
+
+        Used to assert a scope client-side before attempting a write that
+        would otherwise round-trip only to be rejected with a
+        ``scope_not_granted`` error from the gateway.
+        """
+        if not self.has_scope(scope):
+            raise OlympusScopeRequiredError(scope)
+
+    # ------------------------------------------------------------------
+    # Login / session lifecycle
+    # ------------------------------------------------------------------
+
+    def _capture_session(self, session: AuthSession) -> AuthSession:
+        """Populate ``app_scopes`` from JWT when response body didn't, stash."""
+        if not session.app_scopes:
+            decoded = _decode_jwt_app_scopes(session.access_token)
+            if decoded:
+                session.app_scopes = decoded
+        self._current_session = session
+        return session
 
     def login(self, email: str, password: str) -> AuthSession:
         """Authenticate with email and password.
@@ -29,14 +115,14 @@ class AuthService:
         data = self._http.post("/auth/login", json={"email": email, "password": password})
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
-        return session
+        return self._capture_session(session)
 
     def login_sso(self, provider: str) -> AuthSession:
         """Initiate SSO login via an external provider (e.g. "google", "apple")."""
         data = self._http.post("/auth/sso/initiate", json={"provider": provider})
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
-        return session
+        return self._capture_session(session)
 
     def login_pin(self, pin: str, *, location_id: str | None = None) -> AuthSession:
         """Authenticate staff using a PIN code."""
@@ -46,7 +132,7 @@ class AuthService:
         data = self._http.post("/auth/login/pin", json=payload)
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
-        return session
+        return self._capture_session(session)
 
     def me(self) -> User:
         """Get the currently authenticated user profile."""
@@ -58,12 +144,13 @@ class AuthService:
         data = self._http.post("/auth/refresh", json={"refresh_token": refresh_token})
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
-        return session
+        return self._capture_session(session)
 
     def logout(self) -> None:
         """Log out the current session."""
         self._http.post("/auth/logout")
         self._http.clear_access_token()
+        self._current_session = None
 
     def create_user(
         self,
