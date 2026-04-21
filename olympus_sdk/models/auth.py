@@ -18,10 +18,15 @@ class AuthSession:
     user_id: str | None = None
     tenant_id: str | None = None
     roles: list[str] = field(default_factory=list)
+    #: App-scoped permissions granted to this session (#3403 §1.2). Populated
+    #: from the login response body and/or decoded from the JWT ``app_scopes``
+    #: claim. Canonical strings like ``commerce.order.write@tenant``.
+    app_scopes: list[str] = field(default_factory=list)
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> AuthSession:
         roles_raw = data.get("roles")
+        scopes_raw = data.get("app_scopes")
         return AuthSession(
             access_token=data["access_token"],
             token_type=data.get("token_type", "Bearer"),
@@ -30,6 +35,7 @@ class AuthSession:
             user_id=data.get("user_id"),
             tenant_id=data.get("tenant_id"),
             roles=list(roles_raw) if roles_raw else [],
+            app_scopes=list(scopes_raw) if scopes_raw else [],
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,6 +52,8 @@ class AuthSession:
             result["tenant_id"] = self.tenant_id
         if self.roles:
             result["roles"] = self.roles
+        if self.app_scopes:
+            result["app_scopes"] = self.app_scopes
         return result
 
 
