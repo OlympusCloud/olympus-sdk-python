@@ -33,6 +33,7 @@ from olympus_sdk.errors import (
     OlympusNetworkError,
     ScopeDenied,
 )
+from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
 from olympus_sdk.services.consent import ConsentPrompt, ConsentService, Grant
 from olympus_sdk.services.governance import (
     ExceptionRequest,
@@ -41,6 +42,9 @@ from olympus_sdk.services.governance import (
     PolicyKey,
     RiskTier,
 )
+from olympus_sdk.services.identity import IdentityService
+from olympus_sdk.services.smart_home import SmartHomeService
+from olympus_sdk.services.sms import SmsService
 
 __all__ = [
     "OlympusClient",
@@ -63,6 +67,12 @@ __all__ = [
     "DeviceChanged",
     "ExceptionRequestError",
     "ExceptionExpired",
+    # Wave 2 — olympus-cloud-gcp#3216 (voice + identity + smart-home + sms)
+    "IdentityService",
+    "IdentityLink",
+    "OlympusIdentity",
+    "SmartHomeService",
+    "SmsService",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.5.0"
