@@ -50,6 +50,7 @@ from olympus_sdk.services.pay import PayService
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
 from olympus_sdk.services.storage import StorageService
+from olympus_sdk.services.tenant import TenantService
 from olympus_sdk.services.tuning import TuningService
 from olympus_sdk.services.voice import VoiceService
 from olympus_sdk.services.voice_orders import VoiceOrdersService
@@ -107,6 +108,7 @@ class OlympusClient:
         self._identity: IdentityService | None = None
         self._smart_home: SmartHomeService | None = None
         self._sms: SmsService | None = None
+        self._tenant: TenantService | None = None
         # Lazy-decoded scope bitset cache keyed by access token.
         self._cached_bitset_bytes: bytes | None = None
         self._cached_bitset_for_token: str | None = None
@@ -351,6 +353,16 @@ class OlympusClient:
         if self._sms is None:
             self._sms = SmsService(self._http)
         return self._sms
+
+    @property
+    def tenant(self) -> TenantService:
+        """Tenant lifecycle — ``/tenant/*`` surface (create, current, update,
+        retire, unretire, my_tenants, switch_tenant). Shipped in #3403 §2
+        via PR #3410.
+        """
+        if self._tenant is None:
+            self._tenant = TenantService(self._http)
+        return self._tenant
 
     # ------------------------------------------------------------------
     # App-scoped token management (§4.5 dual-JWT flow)

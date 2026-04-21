@@ -41,6 +41,16 @@ from olympus_sdk.errors import (
     ScopeDenied,
 )
 from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
+from olympus_sdk.models.tenant import (
+    AppInstall,
+    ExchangedSession,
+    InviteHandle,
+    Tenant,
+    TenantFirstAdmin,
+    TenantOption,
+    TenantProvisionResult,
+    TenantUpdate,
+)
 from olympus_sdk.services.auth import (
     AuthService,
     SessionEvent,
@@ -61,6 +71,7 @@ from olympus_sdk.services.governance import (
 from olympus_sdk.services.identity import IdentityService
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
+from olympus_sdk.services.tenant import TenantService
 
 __all__ = [
     "OlympusClient",
@@ -103,6 +114,16 @@ __all__ = [
     "SessionExpired",
     "SessionLoggedOut",
     "SilentRefreshHandle",
+    # Tenant lifecycle + identity invites (#3403 §2 + §4.2 / #3410)
+    "TenantService",
+    "Tenant",
+    "TenantFirstAdmin",
+    "TenantProvisionResult",
+    "TenantUpdate",
+    "TenantOption",
+    "ExchangedSession",
+    "AppInstall",
+    "InviteHandle",
 ]
 
 __version__ = "0.5.0"
