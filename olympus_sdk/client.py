@@ -33,19 +33,22 @@ from olympus_sdk.services.ai import AiService
 from olympus_sdk.services.auth import AuthService
 from olympus_sdk.services.billing import BillingService
 from olympus_sdk.services.commerce import CommerceService
+from olympus_sdk.services.connect import ConnectService
+from olympus_sdk.services.consent import ConsentService
 from olympus_sdk.services.data import DataService
 from olympus_sdk.services.devices import DevicesService
 from olympus_sdk.services.enterprise_context import EnterpriseContextService
 from olympus_sdk.services.events import EventsService
 from olympus_sdk.services.gating import GatingService
+from olympus_sdk.services.governance import GovernanceService
+from olympus_sdk.services.identity import IdentityService
 from olympus_sdk.services.marketplace import MarketplaceService
 from olympus_sdk.services.messages import MessagesService
 from olympus_sdk.services.notify import NotifyService
 from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
-from olympus_sdk.services.connect import ConnectService
-from olympus_sdk.services.consent import ConsentService
-from olympus_sdk.services.governance import GovernanceService
+from olympus_sdk.services.smart_home import SmartHomeService
+from olympus_sdk.services.sms import SmsService
 from olympus_sdk.services.storage import StorageService
 from olympus_sdk.services.tuning import TuningService
 from olympus_sdk.services.voice import VoiceService
@@ -101,6 +104,9 @@ class OlympusClient:
         self._connect: ConnectService | None = None
         self._consent: ConsentService | None = None
         self._governance: GovernanceService | None = None
+        self._identity: IdentityService | None = None
+        self._smart_home: SmartHomeService | None = None
+        self._sms: SmsService | None = None
         # Lazy-decoded scope bitset cache keyed by access token.
         self._cached_bitset_bytes: bytes | None = None
         self._cached_bitset_for_token: str | None = None
@@ -317,6 +323,34 @@ class OlympusClient:
         if self._governance is None:
             self._governance = GovernanceService(self._http)
         return self._governance
+
+    @property
+    def identity(self) -> IdentityService:
+        """Olympus ID — global cross-tenant identity, Firebase federation,
+        age-verification (Document AI), and passphrase management
+        (v0.5.0 — #3216 Wave 2).
+        """
+        if self._identity is None:
+            self._identity = IdentityService(self._http)
+        return self._identity
+
+    @property
+    def smart_home(self) -> SmartHomeService:
+        """Smart-home integration — platforms, devices, rooms, scenes,
+        automations (v0.5.0 — #3216 Wave 2).
+        """
+        if self._smart_home is None:
+            self._smart_home = SmartHomeService(self._http)
+        return self._smart_home
+
+    @property
+    def sms(self) -> SmsService:
+        """SMS messaging — outbound SMS (voice-platform + CPaaS), conversation
+        history, and provider delivery status (v0.5.0 — #3216 Wave 2).
+        """
+        if self._sms is None:
+            self._sms = SmsService(self._http)
+        return self._sms
 
     # ------------------------------------------------------------------
     # App-scoped token management (§4.5 dual-JWT flow)

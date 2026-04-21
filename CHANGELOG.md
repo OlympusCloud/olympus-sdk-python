@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.5.0 (2026-04-19)
+
+### Wave 2 of the SDK 1.0 Campaign (OlympusCloud/olympus-cloud-gcp#3216)
+
+Mirrors the Dart SDK surface for voice, identity, smart-home, SMS, and
+voice-orders so Python callers reach dart parity.
+
+**New services:**
+
+- `client.identity` — Olympus ID (global, cross-tenant identity & Firebase
+  federation). Get-or-create identity, tenant link, Document-AI age
+  verification (#3009), passphrase set/verify, and signed-upload session.
+- `client.smart_home` — Smart-home integration: platforms, devices, rooms,
+  scenes (#2569), automations.
+- `client.sms` — Outbound SMS via voice-agent configs (`/voice/sms/*`) and
+  the unified CPaaS layer (`/cpaas/messages/*`, Telnyx primary + Twilio
+  fallback per #2951) with delivery status lookup.
+
+**Rewritten services:**
+
+- `client.voice` — rewritten wholesale against
+  `olympus-sdk-dart/lib/src/services/voice_service.dart` for full dart
+  parity. 60+ methods now cover agents, V2-005 cascade resolver (#3162),
+  voice pool, schedule, provisioning wizard, self-service CRUD, personas,
+  templates, ambiance, voice-tuning overrides, workflow templates,
+  voicemail, conversations, analytics, campaigns, phone numbers + port-in,
+  marketplace voices/packs, calls, speaker, profiles, the edge pipeline
+  (`/voice/process`, `/ws/voice`), caller profiles (now at
+  `/caller-profiles/{phone}` to match dart), escalation config per agent,
+  business hours per agent, and AI-to-AI agent testing (#170).
+
+**Behavioural change (fix):** `VoiceService` is now synchronous, matching
+the rest of the SDK. The previous `async def` signatures wrapped blocking
+HTTP calls and required callers to `await` dicts through `asyncio.run`.
+Callers of the pre-Wave-2 voice surface must drop the `await`. No external
+consumer was observed relying on the async facade (Wave 1 shipped the
+cascade resolver but only under the broken async signature).
+
+**Existing coverage:**
+
+- `client.voice_orders` — already at dart parity since 0.3.0; Wave 2 adds
+  `tests/test_voice_orders.py` fixtures that were missing.
+
+**New models:** `OlympusIdentity`, `IdentityLink` (exported from
+`olympus_sdk.models` and the top-level `olympus_sdk` package).
+
+**Tests added:**
+
+- `tests/test_voice.py` — 40+ cases covering every method group in the
+  rewritten voice service + error propagation.
+- `tests/test_identity.py` — model round-trip + service methods, happy +
+  error paths.
+- `tests/test_smart_home.py` — envelope unwrapping + URL-escaping +
+  command passthrough.
+- `tests/test_sms.py` — voice-platform and CPaaS surfaces; verifies
+  `from_` → `from` rename on the wire.
+- `tests/test_voice_orders.py` — backfill coverage for 0.3.0 service.
+
+`tests/test_voice_v2.py` fixtures updated to the new sync voice surface.
+
+**Quality gates:** `ruff check .` → 0 errors on Wave 2 files;
+`pytest` → 205 passed / 0 failed; `bandit -ll` → 0 findings.
+
 ## 0.4.0 (2026-04-18)
 
 ### Wave 1 of the SDK 1.0 Campaign (OlympusCloud/olympus-cloud-gcp#3216, Wave #3217)

@@ -31,6 +31,7 @@ from olympus_sdk.models.common import (
     WebhookRegistration,
 )
 from olympus_sdk.models.device import Device
+from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
 from olympus_sdk.models.marketplace import Installation, MarketplaceApp
 from olympus_sdk.models.observe import TraceHandle
 from olympus_sdk.models.pay import Balance, Payment, Payout, Refund, TerminalPayment, TerminalReader
@@ -55,10 +56,12 @@ __all__ = [
     "CatalogModifierOption",
     "Classification",
     "Device",
+    "IdentityLink",
     "Installation",
     "Invoice",
     "InvoiceLineItem",
     "MarketplaceApp",
+    "OlympusIdentity",
     "Order",
     "OrderItem",
     "OrderModifier",

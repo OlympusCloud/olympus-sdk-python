@@ -6,14 +6,17 @@ import asyncio
 from unittest.mock import MagicMock
 
 from olympus_sdk.http import OlympusHttpClient
+
+# NB: As of Wave 2 (olympus-cloud-gcp#3216), VoiceService is synchronous —
+# the ``async def`` signatures were removed to match the rest of the SDK.
+# ``ConnectService.create_lead`` remains async and is exercised via
+# ``asyncio.get_event_loop().run_until_complete``.
 from olympus_sdk.models.voice_v2 import (
-    VoiceDefaultsCascade,
     VoiceEffectiveConfig,
     VoicePipeline,
 )
-from olympus_sdk.services.connect import ConnectService, UTM
+from olympus_sdk.services.connect import UTM, ConnectService
 from olympus_sdk.services.voice import VoiceService
-
 
 # Canonical dev-gateway response captured 2026-04-18T01:31 UTC against
 # dev.api.olympuscloud.ai, agent 41f239da-c492-5fe6-9334-7bbc47804a36.
@@ -134,9 +137,7 @@ class TestVoiceServiceV2:
         http = _mock_http()
         http.get.return_value = EFFECTIVE_CONFIG_FIXTURE
         svc = VoiceService(http)
-        cfg = asyncio.get_event_loop().run_until_complete(
-            svc.get_effective_config("abc123")
-        )
+        cfg = svc.get_effective_config("abc123")
         http.get.assert_called_once_with(
             "/voice-agents/configs/abc123/effective-config"
         )
@@ -147,7 +148,7 @@ class TestVoiceServiceV2:
         http = _mock_http()
         http.get.return_value = PIPELINE_FIXTURE
         svc = VoiceService(http)
-        p = asyncio.get_event_loop().run_until_complete(svc.get_pipeline("abc123"))
+        p = svc.get_pipeline("abc123")
         http.get.assert_called_once_with("/voice-agents/configs/abc123/pipeline")
         assert p.pipeline == "olympus_native"
 
