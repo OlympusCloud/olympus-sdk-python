@@ -82,16 +82,24 @@ class TenantFirstAdmin:
 
 
 @dataclass
-class AppInstall:
-    """Record written to ``tenant_app_installs`` on ``POST /tenant/create``."""
+class TenantAppInstall:
+    """SHORT ``tenant_app_installs`` shape returned inline by ``POST /tenant/create``.
+
+    Only carries ``(app_id, status, installed_at)``. For the full install
+    record returned by the ``/apps/*`` ceremony (#3413 §3) — with
+    ``tenant_id``, ``installed_by``, and ``scopes_granted`` — see the
+    :class:`~olympus_sdk.models.apps.AppInstall` in
+    :mod:`olympus_sdk.models.apps`. Renamed 2026-04-21 (unreleased) so the
+    canonical ``AppInstall`` name can host the fuller shape.
+    """
 
     app_id: str
     status: str
     installed_at: str
 
     @staticmethod
-    def from_dict(data: dict[str, Any]) -> AppInstall:
-        return AppInstall(
+    def from_dict(data: dict[str, Any]) -> TenantAppInstall:
+        return TenantAppInstall(
             app_id=str(data.get("app_id", "")),
             status=str(data.get("status", "")),
             installed_at=str(data.get("installed_at", "")),
@@ -181,7 +189,7 @@ class TenantProvisionResult:
     tenant: Tenant
     admin_user_id: str
     session: ExchangedSession
-    installed_apps: list[AppInstall]
+    installed_apps: list[TenantAppInstall]
     #: ``True`` when this is an idempotent retry (original create still in
     #: the 24-hour idempotency window).
     idempotent: bool
@@ -193,7 +201,7 @@ class TenantProvisionResult:
             admin_user_id=str(data.get("admin_user_id", "")),
             session=ExchangedSession.from_dict(data.get("session") if isinstance(data.get("session"), dict) else None),
             installed_apps=[
-                AppInstall.from_dict(a)
+                TenantAppInstall.from_dict(a)
                 for a in (data.get("installed_apps") or [])
                 if isinstance(a, dict)
             ],
@@ -294,10 +302,10 @@ class InviteHandle:
 
 
 __all__ = [
-    "AppInstall",
     "ExchangedSession",
     "InviteHandle",
     "Tenant",
+    "TenantAppInstall",
     "TenantFirstAdmin",
     "TenantOption",
     "TenantProvisionResult",

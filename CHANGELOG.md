@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### New features — apps.install ceremony (olympus-cloud-gcp#3413 §3)
+
+Wraps the Rust platform `/apps/*` routes shipped in olympus-cloud-gcp#3422. Gives every Python app one typed SDK entry point for the apps.install consent ceremony (pending install -> consent -> approve/deny -> installed), listing installed apps, uninstall, and manifest fetches. Cross-parity with sdk-dart#26.
+
+- `AppsService` (`oc.apps`) — 7 synchronous methods:
+  - `install(*, app_id, scopes, return_to, idempotency_key=None)` -> `PendingInstall` with consent URL + 10-minute TTL.
+  - `list_installed()` -> `list[AppInstall]` (accepts raw list or `{"installs": [...]}` envelope).
+  - `uninstall(app_id)` -> `None` (server emits `platform.app.uninstalled`; auth service revokes sessions).
+  - `get_manifest(app_id)` -> `AppManifest` with required/optional scopes + publisher + privacy/TOS URLs.
+  - `get_pending_install(pending_install_id)` -> `PendingInstallDetail` — **anonymous**, no JWT required (unguessable id).
+  - `approve_pending_install(pending_install_id)` -> `AppInstall`.
+  - `deny_pending_install(pending_install_id)` -> `None`.
+- Typed dataclass models in `olympus_sdk/models/apps.py`: `PendingInstall`, `PendingInstallDetail`, `AppInstall`, `AppManifest`. Each carries a `raw: dict[str, Any]` for unmodeled columns, `from_dict` / `to_dict` round-trip, and snake_case throughout.
+- **Breaking (unreleased):** the short `AppInstall` shape in `olympus_sdk/models/tenant.py` — used only by `TenantProvisionResult.installed_apps` — is renamed to `TenantAppInstall`. The canonical `AppInstall` name is now owned by the fuller `/apps/*` shape. No stable release has shipped with the original name, so external callers are unaffected. Mirrors the same rename in `sdk-dart#26`.
+
 ## 0.5.0 (2026-04-19)
 
 ### Wave 2 of the SDK 1.0 Campaign (OlympusCloud/olympus-cloud-gcp#3216)
