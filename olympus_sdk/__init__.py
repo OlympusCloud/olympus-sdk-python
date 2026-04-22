@@ -40,17 +40,24 @@ from olympus_sdk.errors import (
     OlympusScopeRequiredError,
     ScopeDenied,
 )
+from olympus_sdk.models.apps import (
+    AppInstall,
+    AppManifest,
+    PendingInstall,
+    PendingInstallDetail,
+)
 from olympus_sdk.models.identity import IdentityLink, OlympusIdentity
 from olympus_sdk.models.tenant import (
-    AppInstall,
     ExchangedSession,
     InviteHandle,
     Tenant,
+    TenantAppInstall,
     TenantFirstAdmin,
     TenantOption,
     TenantProvisionResult,
     TenantUpdate,
 )
+from olympus_sdk.services.apps import AppsService
 from olympus_sdk.services.auth import (
     AuthService,
     SessionEvent,
@@ -122,8 +129,14 @@ __all__ = [
     "TenantUpdate",
     "TenantOption",
     "ExchangedSession",
-    "AppInstall",
+    "TenantAppInstall",
     "InviteHandle",
+    # Apps.install ceremony (#3413 §3 / #3422)
+    "AppsService",
+    "AppInstall",
+    "AppManifest",
+    "PendingInstall",
+    "PendingInstallDetail",
 ]
 
 __version__ = "0.5.0"

@@ -30,6 +30,7 @@ from olympus_sdk.services.admin_ether import AdminEtherService
 from olympus_sdk.services.admin_gating import AdminGatingService
 from olympus_sdk.services.agent_workflows import AgentWorkflowsService
 from olympus_sdk.services.ai import AiService
+from olympus_sdk.services.apps import AppsService
 from olympus_sdk.services.auth import AuthService
 from olympus_sdk.services.billing import BillingService
 from olympus_sdk.services.commerce import CommerceService
@@ -109,6 +110,7 @@ class OlympusClient:
         self._smart_home: SmartHomeService | None = None
         self._sms: SmsService | None = None
         self._tenant: TenantService | None = None
+        self._apps: AppsService | None = None
         # Lazy-decoded scope bitset cache keyed by access token.
         self._cached_bitset_bytes: bytes | None = None
         self._cached_bitset_for_token: str | None = None
@@ -363,6 +365,19 @@ class OlympusClient:
         if self._tenant is None:
             self._tenant = TenantService(self._http)
         return self._tenant
+
+    @property
+    def apps(self) -> AppsService:
+        """Apps ceremony — canonical ``/apps/*`` surface (#3413 §3).
+
+        ``install`` / ``list_installed`` / ``uninstall`` / ``get_manifest``
+        plus the three pending-install endpoints (``get`` / ``approve`` /
+        ``deny``) that drive the tenant_admin consent screen. Shipped in
+        olympus-cloud-gcp#3422.
+        """
+        if self._apps is None:
+            self._apps = AppsService(self._http)
+        return self._apps
 
     # ------------------------------------------------------------------
     # App-scoped token management (§4.5 dual-JWT flow)
