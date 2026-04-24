@@ -1056,3 +1056,52 @@ class VoiceService:
             "/voice-agents/test",
             json={"tenant_id": tenant_id, "scenario_count": scenario_count},
         )
+
+    # ------------------------------------------------------------------
+    # Marketplace voice reviews (#3463)
+    # ------------------------------------------------------------------
+
+    def list_voice_reviews(
+        self,
+        voice_id: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List published reviews for a marketplace voice.
+
+        Returns ``{reviews, total, average, limit, offset}``. Each review
+        carries a 16-char HMAC-hashed ``author_tenant_id`` so the consumer
+        can de-duplicate authors without learning underlying tenants.
+        """
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._http.get(
+            f"/voice/marketplace/voices/{quote(voice_id, safe='')}/reviews",
+            params=params or None,
+        )
+
+    def submit_voice_review(
+        self,
+        voice_id: str,
+        rating: int,
+        *,
+        text: str = "",
+    ) -> dict[str, Any]:
+        """Submit a 1..5 star review for a marketplace voice.
+
+        One review per ``(user, voice)`` — duplicate submissions return 409.
+        """
+        return self._http.post(
+            f"/voice/marketplace/voices/{quote(voice_id, safe='')}/reviews",
+            json={"rating": rating, "text": text},
+        )
+
+    def delete_voice_review(self, review_id: str) -> None:
+        """Soft-delete the caller's own review."""
+        self._http.delete(
+            f"/voice/marketplace/voices/reviews/{quote(review_id, safe='')}"
+        )
