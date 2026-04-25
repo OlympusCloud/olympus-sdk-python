@@ -34,6 +34,7 @@ from olympus_sdk.services.apps import AppsService
 from olympus_sdk.services.auth import AuthService
 from olympus_sdk.services.billing import BillingService
 from olympus_sdk.services.commerce import CommerceService
+from olympus_sdk.services.compliance import ComplianceService
 from olympus_sdk.services.connect import ConnectService
 from olympus_sdk.services.consent import ConsentService
 from olympus_sdk.services.data import DataService
@@ -111,6 +112,7 @@ class OlympusClient:
         self._sms: SmsService | None = None
         self._tenant: TenantService | None = None
         self._apps: AppsService | None = None
+        self._compliance: ComplianceService | None = None
         # Lazy-decoded scope bitset cache keyed by access token.
         self._cached_bitset_bytes: bytes | None = None
         self._cached_bitset_for_token: str | None = None
@@ -378,6 +380,19 @@ class OlympusClient:
         if self._apps is None:
             self._apps = AppsService(self._http)
         return self._apps
+
+    @property
+    def compliance(self) -> ComplianceService:
+        """Compliance — audit, GDPR data requests, and dram-shop event
+        recording (#3316).
+
+        Cross-app surface used by both BarOS and PizzaOS for ID-check /
+        refused-service / over-serve audit trails plus the rules-lookup
+        API shipped in olympus-cloud-gcp PRs #3525 + #3530.
+        """
+        if self._compliance is None:
+            self._compliance = ComplianceService(self._http)
+        return self._compliance
 
     # ------------------------------------------------------------------
     # App-scoped token management (§4.5 dual-JWT flow)

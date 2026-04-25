@@ -1,17 +1,69 @@
 """Payment processing, refunds, balance, payouts, and terminal management.
 
 Wraps the Olympus Payment Orchestration service via the Go API Gateway.
-Routes: ``/payments/*``, ``/finance/*``, ``/stripe/terminal/*``.
+Routes: ``/payments/*``, ``/finance/*``, ``/stripe/terminal/*``,
+``/platform/pay/routing*`` (#3312).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from olympus_sdk.models.pay import Balance, Payment, Payout, Refund, TerminalPayment, TerminalReader
 
 if TYPE_CHECKING:
     from olympus_sdk.http import OlympusHttpClient
+
+
+PaymentProcessor = Literal["olympus_pay", "square", "adyen", "worldpay"]
+
+
+@dataclass
+class RoutingConfig:
+    """Per-location processor routing config (#3312).
+
+    ``preferred_processor`` and entries in ``fallback_processors`` are
+    each one of :data:`PaymentProcessor` but exposed as plain ``str``
+    so future server-side additions don't break parsing. ``created_at``
+    and ``updated_at`` may be ``None`` on the POST response — the
+    server sets them only after the row is committed.
+    """
+
+    tenant_id: str
+    location_id: str
+    preferred_processor: str
+    is_active: bool
+    fallback_processors: list[str] = field(default_factory=list)
+    credentials_secret_ref: str | None = None
+    merchant_id: str | None = None
+    notes: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+def _opt_str(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _to_routing_config(row: dict[str, Any]) -> RoutingConfig:
+    fallback_raw = row.get("fallback_processors") or []
+    fallback = [p for p in fallback_raw if isinstance(p, str)]
+    is_active_raw = row.get("is_active")
+    is_active = is_active_raw if isinstance(is_active_raw, bool) else True
+    return RoutingConfig(
+        tenant_id=row.get("tenant_id", "") or "",
+        location_id=row.get("location_id", "") or "",
+        preferred_processor=row.get("preferred_processor", "") or "",
+        is_active=is_active,
+        fallback_processors=fallback,
+        credentials_secret_ref=_opt_str(row.get("credentials_secret_ref")),
+        merchant_id=_opt_str(row.get("merchant_id")),
+        notes=_opt_str(row.get("notes")),
+        created_at=_opt_str(row.get("created_at")),
+        updated_at=_opt_str(row.get("updated_at")),
+    )
 
 
 class PayService:
@@ -156,3 +208,56 @@ class PayService:
             json=payload,
         )
         return TerminalPayment.from_dict(data)
+
+    # ------------------------------------------------------------------
+    # Payment routing config (#3312)
+    # ------------------------------------------------------------------
+
+    def configure_routing(
+        self,
+        *,
+        location_id: str,
+        preferred_processor: PaymentProcessor,
+        fallback_processors: list[PaymentProcessor] | None = None,
+        credentials_secret_ref: str | None = None,
+        merchant_id: str | None = None,
+        is_active: bool = True,
+        notes: str | None = None,
+    ) -> RoutingConfig:
+        """Configure processor-agnostic routing for a location (#3312).
+
+        ``preferred_processor`` and entries in ``fallback_processors``
+        must each be one of: ``olympus_pay``, ``square``, ``adyen``,
+        ``worldpay``. The fallback chain cannot include the preferred
+        processor (server enforces).
+
+        ``credentials_secret_ref`` must be a Secret Manager secret NAME
+        (NOT the credential itself) starting with
+        ``olympus-merchant-credentials-`` per the canonical secrets
+        schema. Plaintext API keys are rejected at the server.
+        """
+        payload: dict[str, Any] = {
+            "location_id": location_id,
+            "preferred_processor": preferred_processor,
+            "fallback_processors": list(fallback_processors or []),
+            "is_active": is_active,
+        }
+        if credentials_secret_ref is not None:
+            payload["credentials_secret_ref"] = credentials_secret_ref
+        if merchant_id is not None:
+            payload["merchant_id"] = merchant_id
+        if notes is not None:
+            payload["notes"] = notes
+        data = self._http.post("/platform/pay/routing", json=payload)
+        return _to_routing_config(data)
+
+    def get_routing(self, *, location_id: str) -> RoutingConfig:
+        """Read the current routing config for a location (#3312).
+
+        Raises :class:`~olympus_sdk.errors.OlympusApiError` (404) when
+        no routing config exists for the location.
+        """
+        data = self._http.get(
+            f"/platform/pay/routing/{quote(location_id, safe='')}"
+        )
+        return _to_routing_config(data)
