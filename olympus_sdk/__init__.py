@@ -67,6 +67,13 @@ from olympus_sdk.services.auth import (
     SessionRefreshed,
     SilentRefreshHandle,
 )
+from olympus_sdk.services.compliance import (
+    ComplianceService,
+    DramShopEvent,
+    DramShopEventList,
+    DramShopEventType,
+    DramShopRule,
+)
 from olympus_sdk.services.consent import ConsentPrompt, ConsentService, Grant
 from olympus_sdk.services.governance import (
     ExceptionRequest,
@@ -76,6 +83,7 @@ from olympus_sdk.services.governance import (
     RiskTier,
 )
 from olympus_sdk.services.identity import IdentityService
+from olympus_sdk.services.pay import PaymentProcessor, RoutingConfig
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
 from olympus_sdk.services.tenant import TenantService
@@ -137,6 +145,15 @@ __all__ = [
     "AppManifest",
     "PendingInstall",
     "PendingInstallDetail",
+    # Compliance — dram-shop (#3316 / monorepo PRs #3525, #3530)
+    "ComplianceService",
+    "DramShopEvent",
+    "DramShopEventList",
+    "DramShopEventType",
+    "DramShopRule",
+    # Payment routing config (#3312 / monorepo PR #3528)
+    "PaymentProcessor",
+    "RoutingConfig",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.5.2"
