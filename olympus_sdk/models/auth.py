@@ -80,8 +80,16 @@ class User:
             roles=list(roles_raw) if roles_raw else [],
             tenant_id=data.get("tenant_id"),
             status=data.get("status"),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if data.get("updated_at")
+                else None
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -120,8 +128,16 @@ class ApiKey:
             name=data["name"],
             key=data.get("key"),
             scopes=list(scopes_raw) if scopes_raw else [],
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
-            expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else None
+            ),
+            expires_at=(
+                datetime.fromisoformat(data["expires_at"])
+                if data.get("expires_at")
+                else None
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -135,3 +151,69 @@ class ApiKey:
         if self.expires_at is not None:
             result["expires_at"] = self.expires_at.isoformat()
         return result
+
+
+# ---------------------------------------------------------------------------
+# Firebase federation models (#3275 / #3473 fanout).
+# Mirrors `backend/rust/auth/src/models.rs::LinkFirebaseResponse` and the
+# 409 `multiple_tenants_match` candidate envelope returned by
+# `services/identity_federation.rs::resolve_tenant_for_firebase`.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class FirebaseLinkResult:
+    """Result of a successful ``POST /auth/firebase/link``.
+
+    For idempotent re-link calls ``linked_at`` is the ORIGINAL timestamp
+    the link was first established at, not "now".
+    """
+
+    olympus_id: str
+    firebase_uid: str
+    linked_at: datetime
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> FirebaseLinkResult:
+        linked_at = data.get("linked_at")
+        if isinstance(linked_at, datetime):
+            ts = linked_at
+        elif isinstance(linked_at, str):
+            ts = datetime.fromisoformat(linked_at.replace("Z", "+00:00"))
+        else:
+            raise ValueError("linked_at missing or invalid in FirebaseLinkResult")
+        return FirebaseLinkResult(
+            olympus_id=str(data.get("olympus_id", "")),
+            firebase_uid=str(data.get("firebase_uid", "")),
+            linked_at=ts,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "olympus_id": self.olympus_id,
+            "firebase_uid": self.firebase_uid,
+            "linked_at": self.linked_at.isoformat(),
+        }
+
+
+@dataclass
+class FirebaseTenantOption:
+    """One candidate tenant returned in a ``409 multiple_tenants_match`` from
+    ``/auth/firebase/exchange``.
+
+    Named ``FirebaseTenantOption`` to avoid colliding with the pre-existing
+    :class:`olympus_sdk.models.tenant.TenantOption`, which is the
+    ``/tenant/mine`` projection (different shape).
+    """
+
+    tenant_id: str
+    tenant_slug: str
+    tenant_name: str
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> FirebaseTenantOption:
+        return FirebaseTenantOption(
+            tenant_id=str(data.get("tenant_id", "")),
+            tenant_slug=str(data.get("tenant_slug", "")),
+            tenant_name=str(data.get("tenant_name", "")),
+        )

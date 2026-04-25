@@ -10,10 +10,16 @@ from olympus_sdk.errors import (
     BillingGraceExceeded,
     ConsentRequired,
     DeviceChanged,
+    FirebaseUidAlreadyLinked,
+    IdentityUnlinked,
+    InvalidFirebaseToken,
+    NoTenantMatch,
     OlympusApiError,
     OlympusNetworkError,
     ScopeDenied,
+    TenantAmbiguous,
 )
+from olympus_sdk.models.auth import FirebaseTenantOption
 
 if TYPE_CHECKING:
     from olympus_sdk.config import OlympusConfig
@@ -154,7 +160,10 @@ class OlympusHttpClient:
 
     def _check_stale_catalog(self, response: httpx.Response) -> None:
         """Event hook: fire stale-catalog handler on successful responses."""
-        if response.is_success and response.headers.get("X-Olympus-Catalog-Stale") == "true":
+        if (
+            response.is_success
+            and response.headers.get("X-Olympus-Catalog-Stale") == "true"
+        ):
             handler = self._on_stale_catalog
             if handler is not None:
                 try:
@@ -233,6 +242,52 @@ class OlympusHttpClient:
                 requires_reconsent=bool(
                     body.get("requires_reconsent") if isinstance(body, dict) else False
                 ),
+                message=message,
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+
+        # Firebase federation errors (#3275 / #3473)
+        if normalized == "multiple_tenants_match":
+            candidates_raw = body.get("candidates") if isinstance(body, dict) else None
+            if not isinstance(candidates_raw, list):
+                candidates_raw = (
+                    error_body.get("candidates") if isinstance(error_body, dict) else []
+                )
+            candidates: list[FirebaseTenantOption] = []
+            if isinstance(candidates_raw, list):
+                for c in candidates_raw:
+                    if isinstance(c, dict):
+                        candidates.append(FirebaseTenantOption.from_dict(c))
+            raise TenantAmbiguous(
+                candidates=candidates,
+                message=message,
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if normalized == "firebase_uid_already_linked":
+            raise FirebaseUidAlreadyLinked(
+                existing_olympus_id=_extract("existing_olympus_id"),
+                message=message,
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if normalized == "identity_unlinked":
+            raise IdentityUnlinked(
+                signup_url=_extract("signup_url"),
+                hint=_extract("hint"),
+                message=message,
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if normalized == "no_tenant_match":
+            raise NoTenantMatch(
+                message=message,
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if normalized == "invalid_firebase_token":
+            raise InvalidFirebaseToken(
                 message=message,
                 status_code=response.status_code,
                 request_id=request_id,
