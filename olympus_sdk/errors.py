@@ -216,8 +216,155 @@ class OlympusScopeRequiredError(OlympusApiError):
     ) -> None:
         super().__init__(
             code="SCOPE_REQUIRED",
-            message=message or f"Scope '{scope}' is required but not granted to the current session.",
+            message=message
+            or f"Scope '{scope}' is required but not granted to the current session.",
             status_code=status_code,
             request_id=request_id,
         )
         self.scope = scope
+
+
+# ============================================================================
+# Firebase federation typed exceptions (#3275 / #3473 fanout)
+#
+# All inherit from :class:`FirebaseLoginError` so consumers can catch the
+# whole family in one ``except`` branch::
+#
+#     try:
+#         session = client.auth.login_with_firebase(firebase_id_token=tok)
+#     except TenantAmbiguous as e:
+#         render_picker(e.candidates)
+#     except FirebaseLoginError:
+#         redirect_to_signup()
+#
+# ``FirebaseLoginError`` itself extends :class:`OlympusApiError` so existing
+# blanket ``except OlympusApiError`` blocks still catch them.
+# ============================================================================
+
+
+class FirebaseLoginError(
+    OlympusApiError
+):  # noqa: N818 — marker base, not raised directly
+    """Marker base for typed Firebase federation failures."""
+
+
+class TenantAmbiguous(FirebaseLoginError):  # noqa: N818
+    """Raised on ``409 multiple_tenants_match`` from ``/auth/firebase/exchange``.
+
+    Set when no ``tenant_slug`` was supplied AND auto-resolution found > 1
+    candidate tenant. Apps should render a tenant picker populated with
+    :attr:`candidates` and retry with an explicit ``tenant_slug``. Each
+    candidate is a :class:`olympus_sdk.models.auth.FirebaseTenantOption`.
+    """
+
+    def __init__(
+        self,
+        *,
+        candidates: list,
+        message: str = "multiple tenants match",
+        status_code: int = 409,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="multiple_tenants_match",
+            message=message,
+            status_code=status_code,
+            request_id=request_id,
+        )
+        self.candidates = candidates
+
+
+class FirebaseUidAlreadyLinked(FirebaseLoginError):  # noqa: N818
+    """Raised on ``409 firebase_uid_already_linked`` from ``/auth/firebase/link``.
+
+    The Firebase UID is already bound to a DIFFERENT Olympus user in the
+    caller's tenant. :attr:`existing_olympus_id`, when present, identifies
+    the conflicting ``olympus_identities`` row.
+    """
+
+    def __init__(
+        self,
+        *,
+        existing_olympus_id: str | None = None,
+        message: str = "firebase uid already linked",
+        status_code: int = 409,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="firebase_uid_already_linked",
+            message=message,
+            status_code=status_code,
+            request_id=request_id,
+        )
+        self.existing_olympus_id = existing_olympus_id
+
+
+class IdentityUnlinked(FirebaseLoginError):  # noqa: N818
+    """Raised on ``403 identity_unlinked`` from ``/auth/firebase/exchange``.
+
+    Auto-resolution found no matching tenant AND no ``invite_token`` was
+    supplied. Callers should redirect the user to :attr:`signup_url`.
+    """
+
+    def __init__(
+        self,
+        *,
+        signup_url: str | None = None,
+        hint: str | None = None,
+        message: str = "identity is not linked to any tenant",
+        status_code: int = 403,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="identity_unlinked",
+            message=message,
+            status_code=status_code,
+            request_id=request_id,
+        )
+        self.signup_url = signup_url
+        self.hint = hint
+
+
+class NoTenantMatch(FirebaseLoginError):  # noqa: N818
+    """Raised on ``404 no_tenant_match`` from ``/auth/firebase/exchange``.
+
+    Older server builds return this rather than the 403
+    ``identity_unlinked``. Treat the same as :class:`IdentityUnlinked` from
+    a UX perspective.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str = "no tenant match for the supplied identity",
+        status_code: int = 404,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="no_tenant_match",
+            message=message,
+            status_code=status_code,
+            request_id=request_id,
+        )
+
+
+class InvalidFirebaseToken(FirebaseLoginError):  # noqa: N818
+    """Raised on ``400 invalid_firebase_token``.
+
+    The supplied Firebase ID token failed verification (bad signature,
+    expired, wrong audience, etc.). Re-prompt the user to sign in again.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str = "invalid firebase token",
+        status_code: int = 400,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            code="invalid_firebase_token",
+            message=message,
+            status_code=status_code,
+            request_id=request_id,
+        )

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from olympus_sdk.errors import OlympusScopeRequiredError
-from olympus_sdk.models.auth import ApiKey, AuthSession, User
+from olympus_sdk.models.auth import ApiKey, AuthSession, FirebaseLinkResult, User
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -122,9 +122,7 @@ class SessionLoggedOut:
     """Emitted after :meth:`AuthService.logout` completes."""
 
 
-SessionEvent = (
-    SessionLoggedIn | SessionRefreshed | SessionExpired | SessionLoggedOut
-)
+SessionEvent = SessionLoggedIn | SessionRefreshed | SessionExpired | SessionLoggedOut
 
 
 class SilentRefreshHandle:
@@ -269,7 +267,9 @@ class AuthService:
         HTTP client for subsequent requests and a :class:`SessionLoggedIn`
         event is broadcast to :meth:`session_events` subscribers.
         """
-        data = self._http.post("/auth/login", json={"email": email, "password": password})
+        data = self._http.post(
+            "/auth/login", json={"email": email, "password": password}
+        )
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
         return self._capture_session(session)
@@ -290,6 +290,53 @@ class AuthService:
         session = AuthSession.from_dict(data)
         self._http.set_access_token(session.access_token)
         return self._capture_session(session)
+
+    def login_with_firebase(
+        self,
+        firebase_id_token: str,
+        *,
+        tenant_slug: str | None = None,
+        invite_token: str | None = None,
+    ) -> AuthSession:
+        """Authenticate via Firebase ID token (#3275).
+
+        When ``tenant_slug`` is omitted the backend auto-resolves the tenant
+        from the Firebase UID's identity link. When the lookup matches more
+        than one tenant the call raises
+        :class:`olympus_sdk.errors.TenantAmbiguous`; the app should render a
+        picker from ``e.candidates`` and retry with the chosen ``tenant_slug``.
+
+        Other typed errors (all subclass
+        :class:`olympus_sdk.errors.FirebaseLoginError`):
+            * ``IdentityUnlinked`` — 403; redirect user to ``e.signup_url``
+            * ``NoTenantMatch`` — 404; auto-resolution found nothing
+            * ``InvalidFirebaseToken`` — 400; bad signature / wrong audience
+        """
+        payload: dict[str, str] = {"firebase_id_token": firebase_id_token}
+        if tenant_slug is not None:
+            payload["tenant_slug"] = tenant_slug
+        if invite_token is not None:
+            payload["invite_token"] = invite_token
+        data = self._http.post("/auth/firebase/exchange", json=payload)
+        session = AuthSession.from_dict(data)
+        self._http.set_access_token(session.access_token)
+        return self._capture_session(session)
+
+    def link_firebase(self, firebase_id_token: str) -> FirebaseLinkResult:
+        """Link a Firebase UID to the currently-authenticated Olympus identity.
+
+        Idempotent — re-linking the same ``(firebase_uid, caller)`` returns
+        the ORIGINAL ``linked_at`` timestamp, not "now".
+
+        Raises :class:`olympus_sdk.errors.FirebaseUidAlreadyLinked` (409) if
+        the Firebase UID is already bound to a different Olympus user in the
+        caller's tenant.
+        """
+        data = self._http.post(
+            "/auth/firebase/link",
+            json={"firebase_id_token": firebase_id_token},
+        )
+        return FirebaseLinkResult.from_dict(data)
 
     def me(self) -> User:
         """Get the currently authenticated user profile."""
