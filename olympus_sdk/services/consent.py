@@ -23,14 +23,18 @@ GrantSource = Literal["install", "admin_ui", "scope_upgrade", "migration"]
 
 @dataclass
 class ConsentPrompt:
-    """Server-rendered consent prompt with stable hash for audit."""
+    """Server-rendered consent prompt with stable hash for audit.
 
+    Shape matches `GET /platform/consent-prompt` (#3242).
+    """
+
+    app_id: str
     scope: str
-    description: str
-    consent_copy: str
+    prompt_text: str
     prompt_hash: str
     is_destructive: bool
     requires_mfa: bool
+    app_may_request: bool
 
 
 @dataclass
@@ -81,16 +85,17 @@ class ConsentService:
         ``prompt_hash`` can be sent back as proof of what the user saw.
         """
         body = self._http.get(
-            "/api/v1/platform/consent-prompt",
+            "/platform/consent-prompt",
             params={"app_id": app_id, "scope": scope},
         )
         return ConsentPrompt(
-            scope=body.get("scope", ""),
-            description=body.get("description", ""),
-            consent_copy=body.get("consent_copy", ""),
+            app_id=body.get("app_id", app_id),
+            scope=body.get("scope", scope),
+            prompt_text=body.get("prompt_text", ""),
             prompt_hash=body.get("prompt_hash", ""),
             is_destructive=bool(body.get("is_destructive", False)),
             requires_mfa=bool(body.get("requires_mfa", False)),
+            app_may_request=bool(body.get("app_may_request", False)),
         )
 
     def grant(

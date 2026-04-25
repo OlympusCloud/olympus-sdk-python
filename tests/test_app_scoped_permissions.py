@@ -223,16 +223,22 @@ class TestConsentService:
     def test_describe_returns_consent_prompt_with_hash(self) -> None:
         http = MagicMock()
         http.get.return_value = {
+            "app_id": "aura-ai",
             "scope": "aura.calendar.read@user",
-            "description": "Read calendar",
-            "consent_copy": "Aura will read your calendar.",
+            "prompt_text": "Aura will read your calendar.",
             "prompt_hash": "abc",
             "is_destructive": False,
             "requires_mfa": False,
+            "app_may_request": True,
         }
         svc = ConsentService(http)
         prompt = svc.describe(app_id="aura-ai", scope="aura.calendar.read@user")
         assert prompt.prompt_hash == "abc"
+        assert prompt.prompt_text.startswith("Aura")
+        assert prompt.app_may_request is True
+        # Path realigned: no `/api/v1/` prefix double-up.
+        path = http.get.call_args[0][0]
+        assert path == "/platform/consent-prompt"
 
     def test_grant_user_scope_sends_prompt_hash(self) -> None:
         http = MagicMock()
