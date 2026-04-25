@@ -51,6 +51,7 @@ from olympus_sdk.services.observe import ObserveService
 from olympus_sdk.services.pay import PayService
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
+from olympus_sdk.services.platform import PlatformService
 from olympus_sdk.services.storage import StorageService
 from olympus_sdk.services.tenant import TenantService
 from olympus_sdk.services.tuning import TuningService
@@ -113,6 +114,7 @@ class OlympusClient:
         self._tenant: TenantService | None = None
         self._apps: AppsService | None = None
         self._compliance: ComplianceService | None = None
+        self._platform: PlatformService | None = None
         # Lazy-decoded scope bitset cache keyed by access token.
         self._cached_bitset_bytes: bytes | None = None
         self._cached_bitset_for_token: str | None = None
@@ -367,6 +369,20 @@ class OlympusClient:
         if self._tenant is None:
             self._tenant = TenantService(self._http)
         return self._tenant
+
+    @property
+    def platform(self) -> PlatformService:
+        """Platform-level catalog reads — scope registry + digest (#3517).
+
+        ``list_scope_registry`` powers developer-portal scope pickers and
+        app-manifest validators. ``get_scope_registry_digest`` exposes
+        the deterministic catalog digest (matches the Python seed script
+        byte-for-byte) used by the gateway middleware to detect stale
+        tokens after a catalog rotation.
+        """
+        if self._platform is None:
+            self._platform = PlatformService(self._http)
+        return self._platform
 
     @property
     def apps(self) -> AppsService:
