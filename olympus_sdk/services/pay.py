@@ -66,6 +66,30 @@ def _to_routing_config(row: dict[str, Any]) -> RoutingConfig:
     )
 
 
+@dataclass
+class RoutingConfigList:
+    """Result of :meth:`PayService.list_routing` (#3312 pt2).
+
+    ``total_returned`` reflects how many configs the server actually
+    returned; compare against ``limit`` to detect a capped response.
+    """
+
+    configs: list[RoutingConfig] = field(default_factory=list)
+    total_returned: int = 0
+
+
+def _to_routing_config_list(row: dict[str, Any]) -> RoutingConfigList:
+    configs_raw = row.get("configs") or []
+    configs = [
+        _to_routing_config(c)
+        for c in configs_raw
+        if isinstance(c, dict)
+    ]
+    total_raw = row.get("total_returned")
+    total = total_raw if isinstance(total_raw, int) else 0
+    return RoutingConfigList(configs=configs, total_returned=total)
+
+
 class PayService:
     """Payment processing, refunds, balance, payouts, and terminal management."""
 
@@ -261,3 +285,37 @@ class PayService:
             f"/platform/pay/routing/{quote(location_id, safe='')}"
         )
         return _to_routing_config(data)
+
+    def list_routing(
+        self,
+        *,
+        is_active: bool | None = None,
+        processor: PaymentProcessor | None = None,
+        limit: int | None = None,
+    ) -> RoutingConfigList:
+        """List all routing configs for the caller's tenant (#3312 pt2 → gcp PR #3537).
+
+        Optional filters:
+
+        - ``is_active``: ``True`` returns only active configs, ``False``
+          only inactive. Omit to return both.
+        - ``processor``: restrict to one of the four supported processors.
+          Anything else is rejected by the server with HTTP 400.
+        - ``limit``: page size 1..=200 (default 100). Pagination by
+          ``location_id`` lands later if a tenant exceeds 200 active locations.
+
+        Response includes ``total_returned`` so the caller can detect
+        when ``limit`` capped the result.
+        """
+        params: dict[str, Any] = {}
+        if is_active is not None:
+            params["is_active"] = "true" if is_active else "false"
+        if processor is not None:
+            params["processor"] = processor
+        if limit is not None:
+            params["limit"] = limit
+        data = self._http.get(
+            "/platform/pay/routing",
+            params=params if params else None,
+        )
+        return _to_routing_config_list(data)

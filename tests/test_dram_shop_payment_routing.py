@@ -411,3 +411,97 @@ class TestPayRouting:
         assert cfg.notes == "tail-end fallback"
         assert cfg.created_at == "2026-04-25T12:00:00Z"
         assert cfg.updated_at == "2026-04-25T13:00:00Z"
+
+
+class TestListRouting:
+    """``PayService.list_routing`` (gcp#3312 pt2 → PR #3537)."""
+
+    def test_no_filters_returns_configs(self) -> None:
+        http = MagicMock()
+        http.get.return_value = {
+            "configs": [
+                {
+                    "tenant_id": "ten-1",
+                    "location_id": "loc-a",
+                    "preferred_processor": "olympus_pay",
+                    "fallback_processors": ["square"],
+                    "is_active": True,
+                    "created_at": "2026-04-25T13:00:00Z",
+                    "updated_at": "2026-04-25T13:00:00Z",
+                },
+                {
+                    "tenant_id": "ten-1",
+                    "location_id": "loc-b",
+                    "preferred_processor": "square",
+                    "fallback_processors": [],
+                    "credentials_secret_ref": "olympus-merchant-credentials-acme-square-dev",
+                    "merchant_id": "sq-acct-7",
+                    "is_active": True,
+                },
+            ],
+            "total_returned": 2,
+        }
+        svc = PayService(http)
+        result = svc.list_routing()
+
+        assert http.get.call_args.args == ("/platform/pay/routing",)
+        # params should be None (kwarg) when no filters are passed.
+        assert http.get.call_args.kwargs.get("params") is None
+
+        assert result.total_returned == 2
+        assert len(result.configs) == 2
+        assert result.configs[0].location_id == "loc-a"
+        assert result.configs[0].preferred_processor == "olympus_pay"
+        assert result.configs[1].merchant_id == "sq-acct-7"
+
+    def test_filters_forwarded_as_params(self) -> None:
+        http = MagicMock()
+        http.get.return_value = {"configs": [], "total_returned": 0}
+        svc = PayService(http)
+        svc.list_routing(is_active=False, processor="worldpay", limit=50)
+        params = http.get.call_args.kwargs["params"]
+        # is_active is serialized as string for query consistency with the
+        # other 4 SDKs (Dart/TS/Go/Rust all send "false"/"true").
+        assert params == {
+            "is_active": "false",
+            "processor": "worldpay",
+            "limit": 50,
+        }
+
+    def test_empty_response(self) -> None:
+        http = MagicMock()
+        http.get.return_value = {"configs": [], "total_returned": 0}
+        svc = PayService(http)
+        result = svc.list_routing()
+        assert result.configs == []
+        assert result.total_returned == 0
+
+    def test_tolerates_missing_optional_fields(self) -> None:
+        http = MagicMock()
+        http.get.return_value = {
+            "configs": [
+                {
+                    "tenant_id": "ten-1",
+                    "location_id": "loc-a",
+                    "preferred_processor": "olympus_pay",
+                    # fallback_processors / created_at / updated_at omitted
+                    "is_active": True,
+                },
+            ],
+            "total_returned": 1,
+        }
+        svc = PayService(http)
+        result = svc.list_routing()
+        assert len(result.configs) == 1
+        assert result.configs[0].fallback_processors == []
+        assert result.configs[0].created_at is None
+
+    def test_only_is_active_filter(self) -> None:
+        # Edge case — only is_active without processor/limit. Confirms we
+        # build a partial params dict (not all keys).
+        http = MagicMock()
+        http.get.return_value = {"configs": [], "total_returned": 0}
+        svc = PayService(http)
+        svc.list_routing(is_active=True)
+        params = http.get.call_args.kwargs["params"]
+        assert params == {"is_active": "true"}

@@ -83,7 +83,7 @@ from olympus_sdk.services.governance import (
     RiskTier,
 )
 from olympus_sdk.services.identity import IdentityService
-from olympus_sdk.services.pay import PaymentProcessor, RoutingConfig
+from olympus_sdk.services.pay import PaymentProcessor, RoutingConfig, RoutingConfigList
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
 from olympus_sdk.services.tenant import TenantService
@@ -151,9 +151,10 @@ __all__ = [
     "DramShopEventList",
     "DramShopEventType",
     "DramShopRule",
-    # Payment routing config (#3312 / monorepo PR #3528)
+    # Payment routing config (#3312 / monorepo PR #3528 + PR #3537)
     "PaymentProcessor",
     "RoutingConfig",
+    "RoutingConfigList",
 ]
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
