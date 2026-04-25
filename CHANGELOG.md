@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.4 (2026-04-25)
+
+### Added — `oc.platform.list_scope_registry` + `get_scope_registry_digest` (gcp#3517)
+
+New `PlatformService` (now wired to the `Client.platform` accessor — the
+prior `services/platform.py` was an unwired async-broken stub) wrapping
+the rust-platform scope-catalog read API:
+
+```python
+listing = oc.platform.list_scope_registry(
+    namespace="voice",
+    owner_app_id="orderecho-ai",
+)
+for row in listing.scopes:
+    print(f"{row.scope} (bit {row.bit_id}) — {row.description}")
+
+digest = oc.platform.get_scope_registry_digest()
+# digest.platform_catalog_digest matches scripts/seed_platform_scopes.py byte-for-byte
+```
+
+`ScopeRow` carries the full 13-field surface; `bit_id` is `None` for rows
+not yet allocated a bit (workshop_status pre-`service_ok`).
+`owner_app_id=""` is forwarded distinctly as the explicit "platform-owned
+only" filter (semantically distinct from omitted).
+
+### Fixed
+- `services/platform.py` previously contained an unwired async `PlatformService`
+  with `await self._http.get(...)` against a sync http client. Replaced with
+  a properly-wired sync class focused on platform-wide catalog reads.
+  Tenant-lifecycle workflows continue to live on `Client.tenant`.
+
 ## 0.5.3 (2026-04-25)
 
 ### Added — `oc.pay.list_routing` (gcp#3312 pt2 → PR #3537)

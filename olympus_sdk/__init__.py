@@ -84,6 +84,12 @@ from olympus_sdk.services.governance import (
 )
 from olympus_sdk.services.identity import IdentityService
 from olympus_sdk.services.pay import PaymentProcessor, RoutingConfig, RoutingConfigList
+from olympus_sdk.services.platform import (
+    PlatformService,
+    ScopeRegistryDigest,
+    ScopeRegistryListing,
+    ScopeRow,
+)
 from olympus_sdk.services.smart_home import SmartHomeService
 from olympus_sdk.services.sms import SmsService
 from olympus_sdk.services.tenant import TenantService
@@ -155,6 +161,11 @@ __all__ = [
     "PaymentProcessor",
     "RoutingConfig",
     "RoutingConfigList",
+    # Platform scope registry (#3236 / monorepo PR #3517)
+    "PlatformService",
+    "ScopeRegistryDigest",
+    "ScopeRegistryListing",
+    "ScopeRow",
 ]
 
-__version__ = "0.5.3"
+__version__ = "0.5.4"
