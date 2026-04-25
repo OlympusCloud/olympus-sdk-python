@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.3 (2026-04-25)
+
+### Added — `oc.pay.list_routing` (gcp#3312 pt2 → PR #3537)
+
+`PayService.list_routing` wraps `GET /platform/pay/routing` (the list
+endpoint that landed in olympus-cloud-gcp PR #3537). Lists every payment-
+routing config for the caller's tenant with optional filters:
+
+```python
+result = oc.pay.list_routing(
+    is_active=True,
+    processor="square",
+    limit=50,
+)
+for cfg in result.configs:
+    print(f"{cfg.location_id} → {cfg.preferred_processor}")
+print(f"returned {result.total_returned} configs")
+```
+
+`RoutingConfigList` is exported from the package root so callers can
+type-hint without reaching into `olympus_sdk.services.pay`. Backwards-
+compatible — existing `configure_routing` / `get_routing` wrappers unchanged.
+
 ## Unreleased
 
 ### New features — apps.install ceremony (olympus-cloud-gcp#3413 §3)
